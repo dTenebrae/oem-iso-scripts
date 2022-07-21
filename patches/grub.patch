@@ -1,0 +1,14 @@
+--- grub.cfg	2022-07-21 16:17:19.778322941 +0300
++++ grub_patched.cfg	2022-07-21 16:48:54.825207905 +0300
+@@ -40,6 +40,11 @@
+ 	linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=redos-MUROM-7.3.1\x20x86_64 quiet inst.kdump_addon=off
+ 	initrdefi /images/pxeboot/initrd.img
+ }
++menuentry 'Install RED OS MUROM-7.3.1 Kickstart' --class redos --class gnu-linux --class gnu --class os {
++
++	linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=redos-MUROM-7.3.1\x20x86_64 quiet inst.kdump_addon=off inst.ks=hd:LABEL=redos-MUROM-7.3.1\x20x86_64:/ks.cfg
++	initrdefi /images/pxeboot/initrd.img
++}
+ menuentry 'Test this media & install RED OS MUROM-7.3.1' --class redos --class gnu-linux --class gnu --class os {
+ 	linuxefi /images/pxeboot/vmlinuz inst.stage2=hd:LABEL=redos-MUROM-7.3.1\x20x86_64 rd.live.check quiet inst.kdump_addon=off
+ 	initrdefi /images/pxeboot/initrd.img
