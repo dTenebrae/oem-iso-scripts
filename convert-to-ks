@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# sudo dnf install -y genisoimage bsdtar diffutils patch
+
 # red color for output. Usage: echo "${RED} some text ${NC}"
 RED='\033[0;31m'
 NC='\033[0m'
