@@ -1,13 +1,37 @@
 #!/bin/bash
 
-FILE=$1
+RED='\033[0;31m'
+NC='\033[0m'
+INPUT_FILE=$1
+OUTPUT_FILE=$2
+
+# check if arguments exists
+if [ -z "$1" ]
+  then
+    echo "No input file supplied"
+fi
+
+# if no second argument - create output path by changing input
+if [ -z "$2" ]
+  then
+      OUTPUT_FILE=$(printf '%s\n' "${INPUT_FILE%.iso}-kickstart.iso")
+fi
 
 [[ -d "unpacked" ]] && rm -rf unpacked
+[[ -d "patches" ]] && rm -rf patches
 mkdir unpacked
+mkdir patches
+
 echo "Unpacking iso..."
-bsdtar -x -v -C unpacked -f $FILE
+bsdtar -x -v -C unpacked -f $INPUT_FILE
 echo "Changing permissions..."
 chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/
+
+# find label name, take first instance and replace escape sequance of space with space itself
+LABEL=$(grep -ri 'linuxefi'  unpacked/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
+
+#printf "${RED}Label is: $LABEL${NC}\n"
+#sleep 5
 
 #####################################################################################
 # TODO check files on existance
@@ -15,15 +39,18 @@ echo "Copying kickstarter config..."
 cp config/ks.cfg unpacked/
 
 echo "Patching isolinux.cfg..."
+diff -Naur unpacked/isolinux/isolinux.cfg config/isolinux_patched.cfg > patches/isolinux.patch
 patch unpacked/isolinux/isolinux.cfg patches/isolinux.patch
 
 echo "Patching grub.cfg..."
+diff -Naur unpacked/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches/grub.patch
 patch unpacked/EFI/BOOT/grub.cfg patches/grub.patch
 
 #####################################################################################
 
 echo "Creating new iso..."
 # create new iso after changes are made
-# TODO label to variable
 # TODO output iso to variable
-mkisofs -r -T -J -V "redos-MUROM-7.3.1 x86_64" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o iso/redos-test.iso unpacked
+#mkisofs -r -T -J -V "redos-MUROM-7.3.1 x86_64" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o iso/redos-test.iso unpacked
+#mkisofs -r -T -J -V "$LABEL" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o iso/redos-test.iso unpacked
+mkisofs -r -T -J -V "$LABEL" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o $OUTPUT_FILE unpacked
