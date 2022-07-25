@@ -69,7 +69,7 @@ echo -e "${GREEN}Changing permissions${NC}"
 # TODO replace
 chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/base-iso
 
-# find label name, take first instance and replace escape sequance of space with space itself
+# find label name, take first instance and replace escape sequence of space with space itself
 LABEL=$(grep -ri 'linuxefi'  unpacked/base-iso/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
 
 # Unsquash liveCD
@@ -114,6 +114,29 @@ diff -Naur unpacked/squashfs/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib
 patch unpacked/squashfs/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
 
 #####################################################################################
+
+# creating working directory for squash things
+mkdir -p _squashfs/mnt
+# create 3GiB img file
+truncate -s 3G _squashfs/rootfs.img
+# make ext4 filesistem in it
+mkfs.ext4 _squashfs/rootfs.img
+# mount it
+mount -o loop _squashfs/rootfs.img _squashfs/mnt/
+# copy files, previously unpacked and patched to this image
+ rsync -ahr --info=progress2 unpacked/squashfs/. _squashfs/mnt/.
+# unmount after that
+umount -R _squashfs/mnt
+# try to shrink size of file
+resize2fs -M -f _squashfs/rootfs.img
+# maintain original directory structure
+mkdir _squashfs/LiveOS
+mv _squashfs/rootfs.img _squashfs/LiveOS/
+# pack into squashfs
+mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -comp xz -keep-as-directory
+
+mv _squashfs/squashfs.img unpacked/LiveOS/
+rm -rf _squashfs
 
 echo -e "${GREEN}Creating new iso${NC}"
 # create new iso after changes are made
