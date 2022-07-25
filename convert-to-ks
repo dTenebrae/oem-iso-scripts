@@ -2,28 +2,29 @@
 
 # sudo dnf install -y genisoimage bsdtar diffutils patch
 
-# red color for output. Usage: echo "${RED} some text ${NC}"
+# red color for output. Usage: echo "${GREEN} some text ${NC}"
+GREEN='\033[0;32m'
 RED='\033[0;31m'
-NC='\033[0m'
+NC='\e[0m'
 
 INPUT_FILE=$1
 OUTPUT_FILE=$2
 
 ####################### Sanity checks & preparations ################################
 if [ "$EUID" -ne 0 ]
-  then echo "Please run as root"
+  then echo -e "${RED}Please run as root${NC}"
   exit
 fi
 
 if [ -z "$1" ]
 then
-    echo "No input file supplied"
+    echo -e "${RED}No input file supplied${NC}"
     exit
 fi
 
 if [ ! -f "$INPUT_FILE" ]
 then
-    echo "Input file didn't exists"
+    echo -e "${RED}Input file didn't exists${NC}"
     exit
 fi
 
@@ -35,28 +36,36 @@ fi
 
 if [ ! -d "config" ]
 then
-    echo "No config folder in working directory"
+    echo -e "${RED}No config folder in working directory${NC}"
     exit
 fi
 
 if [[ ! -f config/ks.cfg || ! -f config/isolinux_patched.cfg  || ! -f config/grub_patched.cfg ]]
 then
-    echo "Some of necessary config files absent"
+    echo -e "${RED}Some of necessary config files absent${NC}"
     exit
 fi
 
 [[ -d "unpacked" ]] && rm -rf unpacked
+[[ -d "mnt" ]] &&  rm -rf mnt
 [[ -d "patches" ]] && rm -rf patches
 
 mkdir -p unpacked/base-iso
 mkdir -p unpacked/squashfs
 mkdir patches
+#mkdir mnt
 
 ################################# Unpacking #########################################
 
-echo "Unpacking iso"
+echo -e "${GREEN}Unpacking iso${NC}"
 bsdtar -x -v -C unpacked/base-iso -f $INPUT_FILE
-echo "Changing permissions"
+#mount -t iso9660 -o loop $INPUT_FILE mnt
+#rsync -ahr --info=progress2 mnt/* unpacked/base-iso
+#umount -R mnt
+#rm -rf mnt
+
+
+echo -e "${GREEN}Changing permissions${NC}"
 # TODO replace
 chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/base-iso
 
@@ -69,35 +78,43 @@ mkdir -p _squashfs/mnt
 
 unsquashfs -f -d _squashfs unpacked/base-iso/LiveOS/squashfs.img
 
-echo "Mounting live cd"
+echo -e "${GREEN}Mounting live cd${NC}"
 mount -o loop _squashfs/LiveOS/rootfs.img _squashfs/mnt
 
-echo "Copying it to users folder"
-rsync -ahr --progress _squashfs/mnt/* unpacked/squashfs
+echo -e "${GREEN}Copying it to users folder${NC}"
+rsync -ahr --info=progress2 _squashfs/mnt/* unpacked/squashfs
 
-echo "Unmounting live cd"
-umount -R _squashfs/mnt
+echo -e "${GREEN}Unmounting live cd${NC}"
+ umount -R _squashfs/mnt
 rm -rf _squashfs
 
-echo "Changing permissions"
+echo -e "${GREEN}Changing permissions${NC}"
 # TODO replace
 chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/squashfs
 
 ################################### Patching ########################################
 
-echo "Copying kickstarter config"
+echo -e "${GREEN}Copying kickstarter config${NC}"
 cp config/ks.cfg unpacked/base-iso/
 
-echo "Patching isolinux.cfg"
+echo -e "${GREEN}Patching isolinux.cfg${NC}"
 diff -Naur unpacked/base-iso/isolinux/isolinux.cfg config/isolinux_patched.cfg > patches/isolinux.patch
 patch unpacked/base-iso/isolinux/isolinux.cfg patches/isolinux.patch
 
-echo "Patching grub.cfg"
+echo -e "${GREEN}Patching grub.cfg${NC}"
 diff -Naur unpacked/base-iso/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches/grub.patch
 patch unpacked/base-iso/EFI/BOOT/grub.cfg patches/grub.patch
 
+echo -e "${GREEN}Patching user.glade${NC}"
+diff -Naur unpacked/squashfs/usr/share/anaconda/ui/spokes/user.glade config/user_patched.glade > patches/user-glade.patch
+patch unpacked/squashfs/usr/share/anaconda/ui/spokes/user.glade patches/user-glade.patch
+
+echo -e "${GREEN}Patching users.py${NC}"
+diff -Naur unpacked/squashfs/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py config/users_patched.py > patches/users-py.patch
+patch unpacked/squashfs/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
+
 #####################################################################################
 
-echo "Creating new iso"
+echo -e "${GREEN}Creating new iso${NC}"
 # create new iso after changes are made
 mkisofs -r -T -J -V "$LABEL" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o $OUTPUT_FILE unpacked/base-iso
