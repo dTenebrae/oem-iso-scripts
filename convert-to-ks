@@ -135,7 +135,7 @@ mv _squashfs/rootfs.img _squashfs/LiveOS/
 # pack into squashfs
 mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -comp xz -keep-as-directory
 
-mv _squashfs/squashfs.img unpacked/LiveOS/
+mv _squashfs/squashfs.img unpacked/base-iso/LiveOS/
 rm -rf _squashfs
 
 echo -e "${GREEN}Creating new iso${NC}"
