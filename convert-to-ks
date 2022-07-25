@@ -133,7 +133,8 @@ resize2fs -M -f _squashfs/rootfs.img
 mkdir _squashfs/LiveOS
 mv _squashfs/rootfs.img _squashfs/LiveOS/
 # pack into squashfs
-mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -comp xz -keep-as-directory
+#mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -comp xz -keep-as-directory
+mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -b 1024k -comp xz -Xbcj x86 -e boot
 
 mv _squashfs/squashfs.img unpacked/base-iso/LiveOS/
 rm -rf _squashfs
