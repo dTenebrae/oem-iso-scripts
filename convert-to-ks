@@ -10,6 +10,10 @@ INPUT_FILE=$1
 OUTPUT_FILE=$2
 
 ####################### Sanity checks & preparations ################################
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
 
 if [ -z "$1" ]
 then
@@ -44,34 +48,56 @@ fi
 [[ -d "unpacked" ]] && rm -rf unpacked
 [[ -d "patches" ]] && rm -rf patches
 
-mkdir unpacked
+mkdir -p unpacked/base-iso
+mkdir -p unpacked/squashfs
 mkdir patches
 
 ################################# Unpacking #########################################
 
-echo "Unpacking iso..."
-bsdtar -x -v -C unpacked -f $INPUT_FILE
-echo "Changing permissions..."
-chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/
+echo "Unpacking iso"
+bsdtar -x -v -C unpacked/base-iso -f $INPUT_FILE
+echo "Changing permissions"
+# TODO replace
+chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/base-iso
 
 # find label name, take first instance and replace escape sequance of space with space itself
-LABEL=$(grep -ri 'linuxefi'  unpacked/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
+LABEL=$(grep -ri 'linuxefi'  unpacked/base-iso/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
+
+# Unsquash liveCD
+[[ -d "_squashfs" ]] && rm -rf _squashfs
+mkdir -p _squashfs/mnt
+
+unsquashfs -f -d _squashfs unpacked/base-iso/LiveOS/squashfs.img
+
+echo "Mounting live cd"
+mount -o loop _squashfs/LiveOS/rootfs.img _squashfs/mnt
+
+echo "Copying it to users folder"
+rsync -ahr --progress _squashfs/mnt/* unpacked/squashfs
+
+echo "Unmounting live cd"
+umount -R _squashfs/mnt
+rm -rf _squashfs
+
+echo "Changing permissions"
+# TODO replace
+chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/squashfs
 
 ################################### Patching ########################################
 
-echo "Copying kickstarter config..."
-cp config/ks.cfg unpacked/
+echo "Copying kickstarter config"
+cp config/ks.cfg unpacked/base-iso/
 
-echo "Patching isolinux.cfg..."
-diff -Naur unpacked/isolinux/isolinux.cfg config/isolinux_patched.cfg > patches/isolinux.patch
-patch unpacked/isolinux/isolinux.cfg patches/isolinux.patch
+echo "Patching isolinux.cfg"
+diff -Naur unpacked/base-iso/isolinux/isolinux.cfg config/isolinux_patched.cfg > patches/isolinux.patch
+patch unpacked/base-iso/isolinux/isolinux.cfg patches/isolinux.patch
 
-echo "Patching grub.cfg..."
-diff -Naur unpacked/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches/grub.patch
-patch unpacked/EFI/BOOT/grub.cfg patches/grub.patch
+echo "Patching grub.cfg"
+diff -Naur unpacked/base-iso/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches/grub.patch
+patch unpacked/base-iso/EFI/BOOT/grub.cfg patches/grub.patch
 
 #####################################################################################
 
-echo "Creating new iso..."
+echo "Creating new iso"
 # create new iso after changes are made
-mkisofs -r -T -J -V "$LABEL" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o $OUTPUT_FILE unpacked
+mkisofs -r -T -J -V "$LABEL" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o $OUTPUT_FILE unpacked/base-iso

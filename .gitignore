@@ -134,3 +134,5 @@ unpacked/
 patches/
 patches/*
 .iso
+notes
+_squashfs/
