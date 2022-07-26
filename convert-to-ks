@@ -59,6 +59,8 @@ mkdir patches
 
 echo -e "${GREEN}Unpacking iso${NC}"
 bsdtar -x -v -C unpacked/base-iso -f $INPUT_FILE
+
+# For some reason not working: repo's error. Probably issue with permissions
 #mount -t iso9660 -o loop $INPUT_FILE mnt
 #rsync -ahr --info=progress2 mnt/* unpacked/base-iso
 #umount -R mnt
@@ -76,21 +78,14 @@ LABEL=$(grep -ri 'linuxefi'  unpacked/base-iso/EFI/BOOT/grub.cfg | awk -F '[:= ]
 [[ -d "_squashfs" ]] && rm -rf _squashfs
 mkdir -p _squashfs/mnt
 
+echo -e "${GREEN}Squashfs information before repacking${NC}"
+unsquashfs -s unpacked/base-iso/LiveOS/squashfs.img
+
+echo -e "${GREEN}Unpacking squashfs${NC}"
 unsquashfs -f -d _squashfs unpacked/base-iso/LiveOS/squashfs.img
 
-echo -e "${GREEN}Mounting live cd${NC}"
+echo -e "${GREEN}Mounting squashfs${NC}"
 mount -o loop _squashfs/LiveOS/rootfs.img _squashfs/mnt
-
-echo -e "${GREEN}Copying it to users folder${NC}"
-rsync -ahr --info=progress2 _squashfs/mnt/* unpacked/squashfs
-
-echo -e "${GREEN}Unmounting live cd${NC}"
- umount -R _squashfs/mnt
-rm -rf _squashfs
-
-echo -e "${GREEN}Changing permissions${NC}"
-# TODO replace
-chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/squashfs
 
 ################################### Patching ########################################
 
@@ -106,37 +101,27 @@ diff -Naur unpacked/base-iso/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches
 patch unpacked/base-iso/EFI/BOOT/grub.cfg patches/grub.patch
 
 echo -e "${GREEN}Patching user.glade${NC}"
-diff -Naur unpacked/squashfs/usr/share/anaconda/ui/spokes/user.glade config/user_patched.glade > patches/user-glade.patch
-patch unpacked/squashfs/usr/share/anaconda/ui/spokes/user.glade patches/user-glade.patch
+diff -Naur _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade config/user_patched.glade > patches/user-glade.patch
+patch _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade patches/user-glade.patch
 
 echo -e "${GREEN}Patching users.py${NC}"
-diff -Naur unpacked/squashfs/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py config/users_patched.py > patches/users-py.patch
-patch unpacked/squashfs/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
+diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py config/users_patched.py > patches/users-py.patch
+patch _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
 
 #####################################################################################
 
-# creating working directory for squash things
-mkdir -p _squashfs/mnt
-# create 3GiB img file
-truncate -s 3G _squashfs/rootfs.img
-# make ext4 filesistem in it
-mkfs.ext4 _squashfs/rootfs.img
-# mount it
-mount -o loop _squashfs/rootfs.img _squashfs/mnt/
-# copy files, previously unpacked and patched to this image
- rsync -ahr --info=progress2 unpacked/squashfs/. _squashfs/mnt/.
-# unmount after that
+echo -e "${GREEN}Unmounting squashfs${NC}"
 umount -R _squashfs/mnt
-# try to shrink size of file
-resize2fs -M -f _squashfs/rootfs.img
-# maintain original directory structure
-mkdir _squashfs/LiveOS
-mv _squashfs/rootfs.img _squashfs/LiveOS/
-# pack into squashfs
-#mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -comp xz -keep-as-directory
-#mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -b 1024k -comp xz -Xbcj x86 -e boot -Xdict-size 131072
-mksquashfs _squashfs _squashfs/squashfs.img -b 1024k -comp xz -Xdict-size 131072 -Xbcj x86  -b 131072 -keep-as-directory
+file _squashfs/LiveOS/rootfs.img
 
+# pack into squashfs
+echo -e "${GREEN}Squashing changes${NC}"
+mksquashfs _squashfs/LiveOS _squashfs/squashfs.img -comp xz -Xdict-size 131072 -Xbcj x86 -b 131072 -keep-as-directory
+
+echo -e "${GREEN}Squashfs information after repacking${NC}"
+unsquashfs -s _squashfs/squashfs.img
+
+echo -e "${GREEN}Moving new squashfs into the ISO${NC}"
 mv _squashfs/squashfs.img unpacked/base-iso/LiveOS/
 rm -rf _squashfs
 
