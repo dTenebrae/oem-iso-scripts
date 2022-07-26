@@ -50,39 +50,38 @@ fi
 [[ -d "mnt" ]] &&  rm -rf mnt
 [[ -d "patches" ]] && rm -rf patches
 
-mkdir -p unpacked/base-iso
-mkdir -p unpacked/squashfs
+mkdir -p unpacked
 mkdir patches
 #mkdir mnt
 
 ################################# Unpacking #########################################
 
 echo -e "${GREEN}Unpacking iso${NC}"
-bsdtar -x -v -C unpacked/base-iso -f $INPUT_FILE
+bsdtar -x -v -C unpacked -f $INPUT_FILE
 
 # For some reason not working: repo's error. Probably issue with permissions
 #mount -t iso9660 -o loop $INPUT_FILE mnt
-#rsync -ahr --info=progress2 mnt/* unpacked/base-iso
+#rsync -ahr --info=progress2 mnt/* unpacked
 #umount -R mnt
 #rm -rf mnt
 
 
 echo -e "${GREEN}Changing permissions${NC}"
 # TODO replace
-chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked/base-iso
+chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked
 
 # find label name, take first instance and replace escape sequence of space with space itself
-LABEL=$(grep -ri 'linuxefi'  unpacked/base-iso/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
+LABEL=$(grep -ri 'linuxefi'  unpacked/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
 
 # Unsquash liveCD
 [[ -d "_squashfs" ]] && rm -rf _squashfs
 mkdir -p _squashfs/mnt
 
 echo -e "${GREEN}Squashfs information before repacking${NC}"
-unsquashfs -s unpacked/base-iso/LiveOS/squashfs.img
+unsquashfs -s unpacked/LiveOS/squashfs.img
 
 echo -e "${GREEN}Unpacking squashfs${NC}"
-unsquashfs -f -d _squashfs unpacked/base-iso/LiveOS/squashfs.img
+unsquashfs -f -d _squashfs unpacked/LiveOS/squashfs.img
 
 echo -e "${GREEN}Mounting squashfs${NC}"
 mount -o loop _squashfs/LiveOS/rootfs.img _squashfs/mnt
@@ -90,15 +89,15 @@ mount -o loop _squashfs/LiveOS/rootfs.img _squashfs/mnt
 ################################### Patching ########################################
 
 echo -e "${GREEN}Copying kickstarter config${NC}"
-cp config/ks.cfg unpacked/base-iso/
+cp config/ks.cfg unpacked/
 
 echo -e "${GREEN}Patching isolinux.cfg${NC}"
-diff -Naur unpacked/base-iso/isolinux/isolinux.cfg config/isolinux_patched.cfg > patches/isolinux.patch
-patch unpacked/base-iso/isolinux/isolinux.cfg patches/isolinux.patch
+diff -Naur unpacked/isolinux/isolinux.cfg config/isolinux_patched.cfg > patches/isolinux.patch
+patch unpacked/isolinux/isolinux.cfg patches/isolinux.patch
 
 echo -e "${GREEN}Patching grub.cfg${NC}"
-diff -Naur unpacked/base-iso/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches/grub.patch
-patch unpacked/base-iso/EFI/BOOT/grub.cfg patches/grub.patch
+diff -Naur unpacked/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches/grub.patch
+patch unpacked/EFI/BOOT/grub.cfg patches/grub.patch
 
 echo -e "${GREEN}Patching user.glade${NC}"
 diff -Naur _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade config/user_patched.glade > patches/user-glade.patch
@@ -122,9 +121,9 @@ echo -e "${GREEN}Squashfs information after repacking${NC}"
 unsquashfs -s _squashfs/squashfs.img
 
 echo -e "${GREEN}Moving new squashfs into the ISO${NC}"
-mv _squashfs/squashfs.img unpacked/base-iso/LiveOS/
+mv _squashfs/squashfs.img unpacked/LiveOS/
 rm -rf _squashfs
 
 echo -e "${GREEN}Creating new iso${NC}"
 # create new iso after changes are made
-mkisofs -r -T -J -V "$LABEL" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o $OUTPUT_FILE unpacked/base-iso
+mkisofs -r -T -J -V "$LABEL" -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o $OUTPUT_FILE unpacked
