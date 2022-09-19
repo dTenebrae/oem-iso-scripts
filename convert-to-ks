@@ -73,6 +73,9 @@ chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked
 # find label name, take first instance and replace escape sequence of space with space itself
 LABEL=$(grep -ri 'linuxefi'  unpacked/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
 
+[[ -d "_tmp" ]] && rm -rf _tmp
+mkdir _tmp
+
 # Unsquash liveCD
 [[ -d "_squashfs" ]] && rm -rf _squashfs
 mkdir -p _squashfs/mnt
@@ -103,9 +106,22 @@ echo -e "${GREEN}Patching user.glade${NC}"
 diff -Naur _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade config/user_patched.glade > patches/user-glade.patch
 patch _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade patches/user-glade.patch
 
+#echo -e "${GREEN}Patching user.py${NC}"
+diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/gui/spokes/user.py config/user_patched.py > patches/user-py.patch
+patch _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/gui/spokes/user.py patches/user-py.patch
+
 echo -e "${GREEN}Patching users.py${NC}"
 diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py config/users_patched.py > patches/users-py.patch
 patch _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
+
+echo -e "${GREEN}Replacing initial-setup${NC}"
+cp config/initial-setup* unpacked/Packages/i/
+mv unpacked/{Packages,repodata} _tmp/
+cp _tmp/repodata/*comps* _tmp/
+mv _tmp/*comps.xml _tmp/comps.xml
+echo -e "${GREEN}Updating repo${NC}"
+createrepo --update _tmp/ --no-database -g comps.xml
+mv _tmp/{Packages,repodata} unpacked/
 
 #####################################################################################
 
@@ -123,6 +139,8 @@ unsquashfs -s _squashfs/squashfs.img
 echo -e "${GREEN}Moving new squashfs into the ISO${NC}"
 mv _squashfs/squashfs.img unpacked/LiveOS/
 rm -rf _squashfs
+
+rm -rf _tmp
 
 echo -e "${GREEN}Creating new iso${NC}"
 # create new iso after changes are made

@@ -136,3 +136,5 @@ patches/*
 .iso
 notes
 _squashfs/
+*.rpm
+*.txt
