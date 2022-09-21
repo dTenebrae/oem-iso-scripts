@@ -52,6 +52,12 @@ then
     exit
 fi
 
+if [[ ! -f src/cfg/user_patched.glade || ! -f  src/cfg/user_patched.py || ! -f  src/cfg/users_patched.py ]]
+then
+    echo -e "${RED}Some of necessary config files absent${NC}"
+    exit
+fi
+
 [[ -d "unpacked" ]] && rm -rvf unpacked
 [[ -d "mnt" ]] &&  rm -rvf mnt
 [[ -d "patches" ]] && rm -rvf patches

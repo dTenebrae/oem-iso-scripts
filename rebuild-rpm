@@ -1,5 +1,46 @@
 #!/bin/bash
 
+if ! [ "$EUID" -ne 0 ]
+  then echo -e "${RED}Do not run this script as root${NC}"
+  exit
+fi
+
+if [ ! -f "src/rpms/base/anaconda/anaconda-33.25.4-6.4.el7.src.rpm" ]
+then
+    echo -e "${RED}Anaconda rpm does not exist${NC}"
+    exit
+fi
+
+if [ ! -f "src/rpms/base/anaconda/anaconda.spec" ]
+then
+    echo -e "${RED}Anaconda spec does not exist${NC}"
+    exit
+fi
+
+if [ ! -f "src/rpms/base/anaconda/0006-user-glade.patch" ]
+then
+    echo -e "${RED}Anaconda patch does not exist${NC}"
+    exit
+fi
+
+if [ ! -f "src/rpms/base/initial/initial-setup-0.3.84-3.el7.src.rpm" ]
+then
+    echo -e "${RED}Initial-setup rpm does not exist${NC}"
+    exit
+fi
+
+if [ ! -f "src/rpms/base/initial/initial-setup.spec" ]
+then
+    echo -e "${RED}Initial-setup spec does not exist${NC}"
+    exit
+fi
+
+if [ ! -f "src/rpms/base/initial/0003-common-and-user.patch" ]
+then
+    echo -e "${RED}Initial-setup patch does not exist${NC}"
+    exit
+fi
+
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\e[0m'
