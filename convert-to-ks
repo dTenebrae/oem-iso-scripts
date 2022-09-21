@@ -114,7 +114,8 @@ echo -e "${GREEN}Patching users.py${NC}"
 diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py config/users_patched.py > patches/users-py.patch
 patch _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
 
-echo -e "${GREEN}Replacing initial-setup${NC}"
+echo -e "${GREEN}Replacing RPMs${NC}"
+cp config/anaconda* unpacked/Packages/a/
 cp config/initial-setup* unpacked/Packages/i/
 mv unpacked/{Packages,repodata} _tmp/
 cp _tmp/repodata/*comps* _tmp/
