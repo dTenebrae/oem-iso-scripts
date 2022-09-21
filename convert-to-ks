@@ -97,7 +97,7 @@ mount -o loop _squashfs/LiveOS/rootfs.img _squashfs/mnt
 ################################### Patching ########################################
 
 echo -e "${GREEN}Copying kickstarter config${NC}"
-cp -v config/ks.cfg unpacked/
+cp -v src/cfg/ks.cfg unpacked/
 
 echo -e "${GREEN}Patching isolinux.cfg${NC}"
 diff -Naur unpacked/isolinux/isolinux.cfg src/cfg/isolinux_patched.cfg > patches/isolinux.patch
