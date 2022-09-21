@@ -1,6 +1,11 @@
 #!/bin/bash
 
-# sudo dnf install -y genisoimage bsdtar diffutils patch
+# --- base dependencies ---
+# genisoimage bsdtar diffutils patch
+
+# --- for anaconda rpm rebuild ---
+# glib2-doc gtk3-devel-docs libarchive-devel libgnomekbd-devel
+# libtimezonemap-devel libxklavier-devel audit-libs-devel metacity gtk-doc
 
 # red color for output. Usage: echo "${GREEN} some text ${NC}"
 GREEN='\033[0;32m'
@@ -11,6 +16,7 @@ INPUT_FILE=$1
 OUTPUT_FILE=$2
 
 ####################### Sanity checks & preparations ################################
+
 if [ "$EUID" -ne 0 ]
   then echo -e "${RED}Please run as root${NC}"
   exit
@@ -34,25 +40,24 @@ if [ -z "$2" ]
       OUTPUT_FILE=$(printf '%s\n' "${INPUT_FILE%.iso}-kickstart.iso")
 fi
 
-if [ ! -d "config" ]
+if [ ! -d "src" ]
 then
-    echo -e "${RED}No config folder in working directory${NC}"
+    echo -e "${RED}No src folder in working directory${NC}"
     exit
 fi
 
-if [[ ! -f config/ks.cfg || ! -f config/isolinux_patched.cfg  || ! -f config/grub_patched.cfg ]]
+if [[ ! -f src/cfg/ks.cfg || ! -f src/cfg/isolinux_patched.cfg  || ! -f src/cfg/grub_patched.cfg ]]
 then
     echo -e "${RED}Some of necessary config files absent${NC}"
     exit
 fi
 
-[[ -d "unpacked" ]] && rm -rf unpacked
-[[ -d "mnt" ]] &&  rm -rf mnt
-[[ -d "patches" ]] && rm -rf patches
+[[ -d "unpacked" ]] && rm -rvf unpacked
+[[ -d "mnt" ]] &&  rm -rvf mnt
+[[ -d "patches" ]] && rm -rvf patches
 
-mkdir -p unpacked
-mkdir patches
-#mkdir mnt
+mkdir -pv unpacked
+mkdir -pv patches
 
 ################################# Unpacking #########################################
 
@@ -68,17 +73,17 @@ bsdtar -x -v -C unpacked -f $INPUT_FILE
 
 echo -e "${GREEN}Changing permissions${NC}"
 # TODO replace
-chmod -R a-x+X,u-x+rwX,go-wx+rX unpacked
+chmod -Rv a-x+X,u-x+rwX,go-wx+rX unpacked
 
 # find label name, take first instance and replace escape sequence of space with space itself
 LABEL=$(grep -ri 'linuxefi'  unpacked/EFI/BOOT/grub.cfg | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
 
-[[ -d "_tmp" ]] && rm -rf _tmp
+[[ -d "_tmp" ]] && rm -vrf _tmp
 mkdir _tmp
 
 # Unsquash liveCD
-[[ -d "_squashfs" ]] && rm -rf _squashfs
-mkdir -p _squashfs/mnt
+[[ -d "_squashfs" ]] && rm -rvf _squashfs
+mkdir -pv _squashfs/mnt
 
 echo -e "${GREEN}Squashfs information before repacking${NC}"
 unsquashfs -s unpacked/LiveOS/squashfs.img
@@ -92,39 +97,40 @@ mount -o loop _squashfs/LiveOS/rootfs.img _squashfs/mnt
 ################################### Patching ########################################
 
 echo -e "${GREEN}Copying kickstarter config${NC}"
-cp config/ks.cfg unpacked/
+cp -v config/ks.cfg unpacked/
 
 echo -e "${GREEN}Patching isolinux.cfg${NC}"
-diff -Naur unpacked/isolinux/isolinux.cfg config/isolinux_patched.cfg > patches/isolinux.patch
+diff -Naur unpacked/isolinux/isolinux.cfg src/cfg/isolinux_patched.cfg > patches/isolinux.patch
 patch unpacked/isolinux/isolinux.cfg patches/isolinux.patch
 
 echo -e "${GREEN}Patching grub.cfg${NC}"
-diff -Naur unpacked/EFI/BOOT/grub.cfg config/grub_patched.cfg > patches/grub.patch
+diff -Naur unpacked/EFI/BOOT/grub.cfg src/cfg/grub_patched.cfg > patches/grub.patch
 patch unpacked/EFI/BOOT/grub.cfg patches/grub.patch
 
 echo -e "${GREEN}Patching user.glade${NC}"
-diff -Naur _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade config/user_patched.glade > patches/user-glade.patch
+diff -Naur _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade src/cfg/user_patched.glade > patches/user-glade.patch
 patch _squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade patches/user-glade.patch
 
-#echo -e "${GREEN}Patching user.py${NC}"
-diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/gui/spokes/user.py config/user_patched.py > patches/user-py.patch
+echo -e "${GREEN}Patching user.py${NC}"
+diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/gui/spokes/user.py src/cfg/user_patched.py > patches/user-py.patch
 patch _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/gui/spokes/user.py patches/user-py.patch
 
 echo -e "${GREEN}Patching users.py${NC}"
-diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py config/users_patched.py > patches/users-py.patch
+diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py src/cfg/users_patched.py > patches/users-py.patch
 patch _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
 
 echo -e "${GREEN}Replacing RPMs${NC}"
-cp config/anaconda* unpacked/Packages/a/
-cp config/initial-setup* unpacked/Packages/i/
-mv unpacked/{Packages,repodata} _tmp/
-cp _tmp/repodata/*comps* _tmp/
-mv _tmp/*comps.xml _tmp/comps.xml
+cp -v src/rpms/anaconda* unpacked/Packages/a/
+cp -v src/rpms/initial-setup* unpacked/Packages/i/
+mv -v unpacked/{Packages,repodata} _tmp/
+cp -v _tmp/repodata/*comps* _tmp/
+mv -v _tmp/*comps.xml _tmp/comps.xml
+
 echo -e "${GREEN}Updating repo${NC}"
 createrepo --update _tmp/ --no-database -g comps.xml
-mv _tmp/{Packages,repodata} unpacked/
+mv -v _tmp/{Packages,repodata} unpacked/
 
-#####################################################################################
+################################## Finalizing #######################################
 
 echo -e "${GREEN}Unmounting squashfs${NC}"
 umount -R _squashfs/mnt
@@ -138,10 +144,10 @@ echo -e "${GREEN}Squashfs information after repacking${NC}"
 unsquashfs -s _squashfs/squashfs.img
 
 echo -e "${GREEN}Moving new squashfs into the ISO${NC}"
-mv _squashfs/squashfs.img unpacked/LiveOS/
-rm -rf _squashfs
+mv -v _squashfs/squashfs.img unpacked/LiveOS/
+rm -rvf _squashfs
 
-rm -rf _tmp
+rm -rvf _tmp
 
 echo -e "${GREEN}Creating new iso${NC}"
 # create new iso after changes are made
