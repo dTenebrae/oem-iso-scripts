@@ -126,8 +126,8 @@ diff -Naur _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/use
 patch _squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py patches/users-py.patch
 
 echo -e "${GREEN}Replacing RPMs${NC}"
-cp -v src/rpms/anaconda* unpacked/Packages/a/
-cp -v src/rpms/initial-setup* unpacked/Packages/i/
+cp -v src/rpms/anaconda-* unpacked/Packages/a/
+cp -v src/rpms/initial-* unpacked/Packages/i/
 mv -v unpacked/{Packages,repodata} _tmp/
 cp -v _tmp/repodata/*comps* _tmp/
 mv -v _tmp/*comps.xml _tmp/comps.xml

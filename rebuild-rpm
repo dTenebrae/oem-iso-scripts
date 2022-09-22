@@ -50,7 +50,7 @@ NC='\e[0m'
 echo -e "${GREEN}Rebuilding anaconda rpm${NC}"
 rpmdev-wipetree
 rpm -ihv src/rpms/base/anaconda/anaconda-33.25.4-6.4.el7.src.rpm
-cp -v src/rpms/base/anaconda/anaconda.spec ~/rpmbuild/SPEC/
+cp -v src/rpms/base/anaconda/anaconda.spec ~/rpmbuild/SPECS/
 cp -v src/rpms/base/anaconda/0006-user-glade.patch ~/rpmbuild/SOURCES/
 rpmbuild -bb ~/rpmbuild/SPECS/anaconda.spec
 cp -v ~/rpmbuild/RPMS/x86_64/anaconda-* src/rpms/
@@ -58,7 +58,7 @@ cp -v ~/rpmbuild/RPMS/x86_64/anaconda-* src/rpms/
 echo -e "${GREEN}Rebuilding initial-setup rpm${NC}"
 rpmdev-wipetree
 rpm -ihv src/rpms/base/initial/initial-setup-0.3.84-3.el7.src.rpm
-cp -v src/rpms/base/initial/initial-setup.spec ~/rpmbuild/SPEC/
+cp -v src/rpms/base/initial/initial-setup.spec ~/rpmbuild/SPECS/
 cp -v src/rpms/base/initial/0003-common-and-user.patch ~/rpmbuild/SOURCES/
 rpmbuild -bb ~/rpmbuild/SPECS/initial-setup.spec
 cp -v ~/rpmbuild/RPMS/x86_64/initial* src/rpms/
