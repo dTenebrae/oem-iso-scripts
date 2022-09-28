@@ -30,7 +30,7 @@ index 517ae75..63b8a44 100644
 +                spokes.append(spoke)
 +            else:
 +                user_flag = True
- 
+
      for spoke in spokes:
          ret.setdefault(spoke.category, [])
 diff --git a/initial_setup/gui/spokes/user.glade b/initial_setup/gui/spokes/user.glade
@@ -301,7 +301,7 @@ index 0000000..3934fd0
 +                    <child>
 +                      <object class="GtkCheckButton" id="admin_checkbox">
 +                        <property name="label" translatable="yes" context="GUI|User">_Make this user administrator</property>
-+                        <property name="visible">True</property>
++                        <property name="visible">False</property>
 +                        <property name="can_focus">False</property>
 +                        <property name="receives_default">False</property>
 +                        <property name="active">True</property>
@@ -1080,6 +1080,6 @@ index 0000000..4335b54
 +            NormalSpoke.on_back_clicked(self, button)
 +        else:
 +            log.info("Return to hub prevented by password checking rules.")
--- 
+--
 2.30.3
 

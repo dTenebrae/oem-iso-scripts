@@ -439,7 +439,8 @@ class UserSpoke(FirstbootSpokeMixIn, NormalSpoke, GUISpokeInputCheckHandler):
 
         self.username = self.user.name
         self.fullname = self.user.gecos
-        self._admin_checkbox.set_active(self.user.has_admin_priviledges())
+        # self._admin_checkbox.set_active(self.user.has_admin_priviledges())
+        self._admin_checkbox.set_active(False)
 
         # rerun checks so that we have a correct status message, if any
         self.checker.run_checks()
@@ -586,7 +587,8 @@ class UserSpoke(FirstbootSpokeMixIn, NormalSpoke, GUISpokeInputCheckHandler):
         with self.main_window.enlightbox(self._advanced_user_dialog.window):
             self._advanced_user_dialog.run()
 
-        self._admin_checkbox.set_active(self.user.has_admin_priviledges())
+        # self._admin_checkbox.set_active(self.user.has_admin_priviledges())
+        self._admin_checkbox.set_active(False)
 
     def _checks_done(self, error_message):
         """Update the warning with the input validation error from the first

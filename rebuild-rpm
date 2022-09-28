@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# --- for anaconda rpm rebuild ---
+# glib2-doc gtk3-devel-docs libarchive-devel libgnomekbd-devel
+# libtimezonemap-devel libxklavier-devel audit-libs-devel metacity gtk-doc
+
 if ! [ "$EUID" -ne 0 ]
   then echo -e "${RED}Do not run this script as root${NC}"
   exit
