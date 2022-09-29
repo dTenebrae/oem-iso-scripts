@@ -1,83 +1,74 @@
 #!/bin/bash
 
-# --- base dependencies ---
-# genisoimage bsdtar diffutils patch lorax xorriso
+set -eo pipefail
 
-# red color for output. Usage: echo "${GREEN} some text ${NC}"
+# --- base dependencies ---
+# genisoimage bsdtar lorax xorriso
+
+# Color for output. Usage: echo -e "${COLOR} some text ${NC}"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\e[0m'
 
 INPUT_FILE=$1
 OUTPUT_FILE=$2
-
-################################## PATH ############################################
-
 DIRNAME=$(dirname `readlink -e "$0"`)
+
+################################### PATH ############################################
 
 ISO_CFG="unpacked/isolinux/isolinux.cfg"
 GRUB_CFG="unpacked/EFI/BOOT/grub.cfg"
-USER_GLADE="_squashfs/mnt/usr/share/anaconda/ui/spokes/user.glade"
-USER_PY="_squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/gui/spokes/user.py"
-USERS_PY="_squashfs/mnt/usr/lib64/python3.8/site-packages/pyanaconda/ui/lib/users.py"
 
+# external files
 KS_CFG_PATCHED="src/cfg/ks.cfg"
 ISO_CFG_PATCHED="src/cfg/isolinux_patched.cfg"
 GRUB_CFG_PATCHED="src/cfg/grub_patched.cfg"
-USER_GLADE_PATCHED="src/cfg/user_patched.glade"
-USER_PY_PATCHED="src/cfg/user_patched.py"
-USERS_PY_PATCHED="src/cfg/users_patched.py"
+ISO_HDPFX="src/isohdpfx.bin"
+ANAC_RPM="src/rpms/anaconda-*"
+INIT_RPM="src/rpms/initial-*"
 
 ####################### SANITY CHECKS & PREPARATIONS ################################
 
-if [ "$EUID" -ne 0 ]
-  then echo -e "${RED}Please run as root${NC}"
-  exit
+if [ "$EUID" -ne 0 ] ; then
+    echo -e "${RED}Please run as root${NC}"
+    exit
 fi
 
-if [ -z "$1" ]
-then
+if [ -z "$1" ] ; then
     echo -e "${RED}No input file supplied${NC}"
     exit
 fi
 
-if [ ! -f "$INPUT_FILE" ]
-then
+if [ ! -f "$INPUT_FILE" ] ; then
     echo -e "${RED}Input file didn't exist${NC}"
     exit
 fi
 
-# if no second argument - create output path by changing input
-if [ -z "$2" ]
-  then
-      OUTPUT_FILE=$(printf '%s\n' "${INPUT_FILE%.iso}-kickstart.iso")
-fi
-
-if [ ! -d "$DIRNAME/src" ]
-then
+if [ ! -d "$DIRNAME/src" ] ; then
     echo -e "${RED}No src folder in working directory${NC}"
     exit
 fi
 
-if [[ ! -f $KS_CFG_PATCHED || ! -f $ISO_CFG_PATCHED  || ! -f $GRUB_CFG_PATCHED \
-    || ! -f $USER_GLADE_PATCHED || ! -f $USER_PY_PATCHED  || ! -f $USERS_PY_PATCHED ]]
-then
+if [[ ! -f $KS_CFG_PATCHED || ! -f $ISO_CFG_PATCHED  || ! -f $GRUB_CFG_PATCHED ]] ; then
     echo -e "${RED}Some of necessary config files absent${NC}"
     exit
 fi
 
-echo -e "${GREEN}Preparing filesystem${NC}"
+# if no second argument - create output path by changing input
+if [ -z "$2" ] ; then
+      OUTPUT_FILE=$(printf '%s\n' "${INPUT_FILE%.iso}-kickstart.iso")
+fi
 
-[[ -d "$DIRNAME/_squashfs" ]] && rm -rvf $DIRNAME/_squashfs
-[[ -d "$DIRNAME/unpacked" ]] && rm -rvf $DIRNAME/unpacked
-[[ -d "$DIRNAME/_tmp" ]] && rm -vrf $DIRNAME/_tmp
-[[ -d "$DIRNAME/mnt" ]] &&  rm -rvf $DIRNAME/mnt
 
-mkdir -pv $DIRNAME/_squashfs/mnt
-mkdir -pv $DIRNAME/unpacked
-mkdir -pv $DIRNAME/_tmp
+[[ -d "$DIRNAME/_squashfs" ]] && rm -rvf "$DIRNAME/_squashfs"
+[[ -d "$DIRNAME/unpacked" ]] &&  rm -rvf "$DIRNAME/unpacked"
+[[ -d "$DIRNAME/_tmp" ]] &&      rm -rvf "$DIRNAME/_tmp"
+[[ -d "$DIRNAME/mnt" ]] &&       rm -rvf "$DIRNAME/mnt"
 
-########################### UNPACKING & MOUNTING #####################################
+mkdir -pv "$DIRNAME/unpacked"
+mkdir -pv "$DIRNAME/_tmp"
+
+################################## UNPACKING  ######################################
 
 echo -e "${GREEN}Unpacking iso${NC}"
 bsdtar -x \
@@ -91,29 +82,16 @@ chmod -Rv a-x+X,u-x+rwX,go-wx+rX $DIRNAME/unpacked
 # find label name, take first instance and replace escape sequence of space with space itself
 LABEL=$(grep -ri 'linuxefi'  $GRUB_CFG | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
 
-# Unsquash liveCD
-echo -e "${GREEN}Squashfs information before repacking${NC}"
-unsquashfs -s $DIRNAME/unpacked/LiveOS/squashfs.img
-
-echo -e "${GREEN}Unpacking squashfs${NC}"
-unsquashfs -f -d $DIRNAME/_squashfs $DIRNAME/unpacked/LiveOS/squashfs.img
-
-echo -e "${GREEN}Mounting squashfs${NC}"
-mount -o loop $DIRNAME/_squashfs/LiveOS/rootfs.img $DIRNAME/_squashfs/mnt
-
 ################################### PATCHING ########################################
 
 echo -e "${GREEN}Copying modified files${NC}"
 cp -v $DIRNAME/$KS_CFG_PATCHED     $DIRNAME/unpacked/
 cp -v $DIRNAME/$ISO_CFG_PATCHED    $DIRNAME/$ISO_CFG
 cp -v $DIRNAME/$GRUB_CFG_PATCHED   $DIRNAME/$GRUB_CFG
-cp -v $DIRNAME/$USER_GLADE_PATCHED $DIRNAME/$USER_GLADE
-cp -v $DIRNAME/$USER_PY_PATCHED    $DIRNAME/$USER_PY
-cp -v $DIRNAME/$USERS_PY_PATCHED   $DIRNAME/$USERS_PY
 
 echo -e "${GREEN}Replacing RPMs${NC}"
-cp -v $DIRNAME/src/rpms/anaconda-*          $DIRNAME/unpacked/Packages/a/
-cp -v $DIRNAME/src/rpms/initial-*           $DIRNAME/unpacked/Packages/i/
+cp -v $DIRNAME/$ANAC_RPM                    $DIRNAME/unpacked/Packages/a/
+cp -v $DIRNAME/$INIT_RPM                    $DIRNAME/unpacked/Packages/i/
 mv -v $DIRNAME/unpacked/{Packages,repodata} $DIRNAME/_tmp/
 cp -v $DIRNAME/_tmp/repodata/*comps*        $DIRNAME/_tmp/
 mv -v $DIRNAME/_tmp/*comps.xml              $DIRNAME/_tmp/comps.xml
@@ -123,52 +101,40 @@ mv -v $DIRNAME/_tmp/*comps.xml              $DIRNAME/_tmp/comps.xml
 echo -e "${GREEN}Updating repo${NC}"
 createrepo --update _tmp/ --no-database -g comps.xml
 mv -v $DIRNAME/_tmp/{Packages,repodata} $DIRNAME/unpacked/
+rm -rvf "$DIRNAME/_tmp"
 
-echo -e "${GREEN}Unmounting squashfs${NC}"
-umount -R $DIRNAME/_squashfs/mnt
-file $DIRNAME/_squashfs/LiveOS/rootfs.img
+# Not sure, if we have to delete TRANS.TBL
+find $DIRNAME/unpacked -iname "trans.tbl" -delete
 
-# pack into squashfs
-echo -e "${GREEN}Squashing changes${NC}"
-mksquashfs \
-    $DIRNAME/_squashfs/LiveOS $DIRNAME/_squashfs/squashfs.img \
-    -comp xz \
-    -Xdict-size 131072 \
-    -Xbcj x86 \
-    -b 131072 \
-    -keep-as-directory
-
-echo -e "${GREEN}Squashfs information after repacking${NC}"
-unsquashfs -s $DIRNAME/_squashfs/squashfs.img
-
-echo -e "${GREEN}Moving new squashfs into the ISO${NC}"
-mv -v $DIRNAME/_squashfs/squashfs.img $DIRNAME/unpacked/LiveOS/
-rm -rvf $DIRNAME/_squashfs
-rm -rvf $DIRNAME/_tmp
-
-find ./unpacked -iname "trans.tbl" -delete
-
+# create efi image
 mkefiboot \
     --label=LIVEBOOT \
     --debug \
     $DIRNAME/unpacked/EFI/BOOT $DIRNAME/unpacked/images/efiboot.img
 
+# create iso
 echo -e "${GREEN}Creating new iso${NC}"
-xorriso -as mkisofs \
-    -isohybrid-mbr $DIRNAME/src/isohdpfx.bin \
+xorriso \
+    -as mkisofs \
+    -isohybrid-mbr $DIRNAME/$ISO_HDPFX \
     -c isolinux/boot.cat \
     -b isolinux/isolinux.bin \
     -no-emul-boot \
-    -boot-load-size 4 -boot-info-table \
+    -boot-load-size 4 \
+    -boot-info-table \
     -eltorito-alt-boot \
     -e images/efiboot.img \
     -no-emul-boot \
     -isohybrid-gpt-basdat \
     -R \
-    -J -J -joliet-long \
+    -J \
+    -joliet-long \
     -V "$LABEL" \
     -o $OUTPUT_FILE $DIRNAME/unpacked
 
+# attach uefi bootloader
 isohybrid \
     --uefi $OUTPUT_FILE \
     --verbose
+
+#rm -rvf "$DIRNAME/unpacked"

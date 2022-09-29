@@ -1,12 +1,12 @@
-From caef0c62f50a4ce74b1e6af6cbb77378a45a0571 Mon Sep 17 00:00:00 2001
+From a173f9950a117f49579e76060a74736d8e870c9d Mon Sep 17 00:00:00 2001
 From: Artem Chernyshev <artem.chernyshev@red-soft.ru>
-Date: Tue, 20 Sep 2022 15:30:31 +0300
+Date: Thu, 29 Sep 2022 10:57:10 +0300
 Subject: [PATCH] common and user
 
 ---
  initial_setup/common.py             |  11 +-
  initial_setup/gui/spokes/user.glade | 344 ++++++++++++++
- initial_setup/gui/spokes/user.py    | 691 ++++++++++++++++++++++++++++
+ initial_setup/gui/spokes/user.py    | 693 ++++++++++++++++++++++++++++
  3 files changed, 1044 insertions(+), 2 deletions(-)
  create mode 100644 initial_setup/gui/spokes/user.glade
  create mode 100644 initial_setup/gui/spokes/user.py
@@ -35,7 +35,7 @@ index 517ae75..63b8a44 100644
          ret.setdefault(spoke.category, [])
 diff --git a/initial_setup/gui/spokes/user.glade b/initial_setup/gui/spokes/user.glade
 new file mode 100644
-index 0000000..3934fd0
+index 0000000..1955110
 --- /dev/null
 +++ b/initial_setup/gui/spokes/user.glade
 @@ -0,0 +1,344 @@
@@ -301,12 +301,12 @@ index 0000000..3934fd0
 +                    <child>
 +                      <object class="GtkCheckButton" id="admin_checkbox">
 +                        <property name="label" translatable="yes" context="GUI|User">_Make this user administrator</property>
-+                        <property name="visible">False</property>
-+                        <property name="can_focus">False</property>
++                        <property name="visible">True</property>
++                        <property name="can_focus">True</property>
 +                        <property name="receives_default">False</property>
-+                        <property name="active">True</property>
 +                        <property name="use_underline">True</property>
 +                        <property name="xalign">0</property>
++                        <property name="active">True</property>
 +                        <property name="draw_indicator">True</property>
 +                        <signal name="toggled" handler="on_admin_toggled" swapped="no"/>
 +                      </object>
@@ -385,10 +385,10 @@ index 0000000..3934fd0
 +</interface>
 diff --git a/initial_setup/gui/spokes/user.py b/initial_setup/gui/spokes/user.py
 new file mode 100644
-index 0000000..4335b54
+index 0000000..c841f1b
 --- /dev/null
 +++ b/initial_setup/gui/spokes/user.py
-@@ -0,0 +1,691 @@
+@@ -0,0 +1,693 @@
 +# User creation spoke
 +#
 +# Copyright (C) 2013-2014 Red Hat, Inc.
@@ -766,6 +766,8 @@ index 0000000..4335b54
 +        # set the visibility of the password entries
 +        set_password_visibility(self.password_entry, False)
 +        set_password_visibility(self.password_confirmation_entry, False)
++
++        self._admin_checkbox.set_sensitive(False)
 +
 +        # report that we are done
 +        self.initialize_done()
