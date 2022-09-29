@@ -1,11 +1,12 @@
 #!/bin/bash
 
+# Падаем при ошибке
 set -eo pipefail
 
 # --- base dependencies ---
 # genisoimage bsdtar lorax xorriso
 
-# Color for output. Usage: echo -e "${COLOR} some text ${NC}"
+# Цветной вывод. Использование: echo -e "${COLOR} some text ${NC}"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\e[0m'
@@ -16,10 +17,15 @@ DIRNAME=$(dirname `readlink -e "$0"`)
 
 ################################### PATH ############################################
 
-ISO_CFG="unpacked/isolinux/isolinux.cfg"
-GRUB_CFG="unpacked/EFI/BOOT/grub.cfg"
+# Временные каталоги
+UNPACKED_ISO="_unpacked"
+TMP_REPO="_tmp"
 
-# external files
+# Заменяемые файлы
+ISO_CFG="$UNPACKED_ISO/isolinux/isolinux.cfg"
+GRUB_CFG="$UNPACKED_ISO/EFI/BOOT/grub.cfg"
+
+# Внешние пути
 KS_CFG_PATCHED="src/cfg/ks.cfg"
 ISO_CFG_PATCHED="src/cfg/isolinux_patched.cfg"
 GRUB_CFG_PATCHED="src/cfg/grub_patched.cfg"
@@ -29,90 +35,94 @@ INIT_RPM="src/rpms/initial-*"
 
 ####################### SANITY CHECKS & PREPARATIONS ################################
 
+# Мы хотим запускаться от рута
 if [ "$EUID" -ne 0 ] ; then
     echo -e "${RED}Please run as root${NC}"
     exit
 fi
-
+# Без имени ISO работать сложно
 if [ -z "$1" ] ; then
     echo -e "${RED}No input file supplied${NC}"
     exit
 fi
-
+# Если его не существует - тоже
 if [ ! -f "$INPUT_FILE" ] ; then
     echo -e "${RED}Input file didn't exist${NC}"
     exit
 fi
-
+# Проверка на существование директории с конфигами и не только
 if [ ! -d "$DIRNAME/src" ] ; then
     echo -e "${RED}No src folder in working directory${NC}"
     exit
 fi
-
-if [[ ! -f $KS_CFG_PATCHED || ! -f $ISO_CFG_PATCHED  || ! -f $GRUB_CFG_PATCHED ]] ; then
-    echo -e "${RED}Some of necessary config files absent${NC}"
+# Если директория есть, а нужных файлов в ней нет (TODO добавить проверку всех файлов)
+if [[ ! -f $DIRNAME/$KS_CFG_PATCHED || ! -f $DIRNAME/$ISO_CFG_PATCHED  \
+    || ! -f $DIRNAME/$GRUB_CFG_PATCHED ]] ; then
+    echo -e "${RED}Some of necessary config files are absent${NC}"
     exit
 fi
 
-# if no second argument - create output path by changing input
+# Если второй аргумент не указан - имя выходного ISO создаем из входного
 if [ -z "$2" ] ; then
       OUTPUT_FILE=$(printf '%s\n' "${INPUT_FILE%.iso}-kickstart.iso")
 fi
 
+# Проверяем, нет ли временных каталогов с прошлого запуска
+[[ -d "$DIRNAME/$UNPACKED_ISO" ]] &&  rm -rvf "$DIRNAME/$UNPACKED_ISO"
+[[ -d "$DIRNAME/$TMP_REPO" ]] &&      rm -rvf "$DIRNAME/$TMP_REPO"
 
-[[ -d "$DIRNAME/_squashfs" ]] && rm -rvf "$DIRNAME/_squashfs"
-[[ -d "$DIRNAME/unpacked" ]] &&  rm -rvf "$DIRNAME/unpacked"
-[[ -d "$DIRNAME/_tmp" ]] &&      rm -rvf "$DIRNAME/_tmp"
-[[ -d "$DIRNAME/mnt" ]] &&       rm -rvf "$DIRNAME/mnt"
-
-mkdir -pv "$DIRNAME/unpacked"
-mkdir -pv "$DIRNAME/_tmp"
+# Создаем временные каталоги
+mkdir -pv "$DIRNAME/$UNPACKED_ISO"
+mkdir -pv "$DIRNAME/$TMP_REPO"
 
 ################################## UNPACKING  ######################################
 
+# Распаковываем ISO
 echo -e "${GREEN}Unpacking iso${NC}"
-bsdtar -x \
+bsdtar \
+    -x \
     -v \
-    -C $DIRNAME/unpacked \
+    -C $DIRNAME/$UNPACKED_ISO \
     -f $INPUT_FILE
 
+# Меняем права на человеческие
 echo -e "${GREEN}Changing permissions${NC}"
-chmod -Rv a-x+X,u-x+rwX,go-wx+rX $DIRNAME/unpacked
+chmod -Rv a-x+X,u-x+rwX,go-wx+rX $DIRNAME/$UNPACKED_ISO
 
-# find label name, take first instance and replace escape sequence of space with space itself
+# Вытаскиваем метку ISO из конфига
 LABEL=$(grep -ri 'linuxefi'  $GRUB_CFG | awk -F '[:= ]' '{print $6}' | tail -n 1 | sed 's/\\x20/ /g')
 
 ################################### PATCHING ########################################
 
+# Заменяем файлы на модифицированные
 echo -e "${GREEN}Copying modified files${NC}"
-cp -v $DIRNAME/$KS_CFG_PATCHED     $DIRNAME/unpacked/
+cp -v $DIRNAME/$KS_CFG_PATCHED     $DIRNAME/$UNPACKED_ISO/
 cp -v $DIRNAME/$ISO_CFG_PATCHED    $DIRNAME/$ISO_CFG
 cp -v $DIRNAME/$GRUB_CFG_PATCHED   $DIRNAME/$GRUB_CFG
 
+# То же самое для RPM (было бы неплохо, если их сначала собрали с помощью скрипта rebuild-rpm)
 echo -e "${GREEN}Replacing RPMs${NC}"
-cp -v $DIRNAME/$ANAC_RPM                    $DIRNAME/unpacked/Packages/a/
-cp -v $DIRNAME/$INIT_RPM                    $DIRNAME/unpacked/Packages/i/
-mv -v $DIRNAME/unpacked/{Packages,repodata} $DIRNAME/_tmp/
-cp -v $DIRNAME/_tmp/repodata/*comps*        $DIRNAME/_tmp/
-mv -v $DIRNAME/_tmp/*comps.xml              $DIRNAME/_tmp/comps.xml
+cp -v $DIRNAME/$ANAC_RPM                         $DIRNAME/$UNPACKED_ISO/Packages/a/
+cp -v $DIRNAME/$INIT_RPM                         $DIRNAME/$UNPACKED_ISO/Packages/i/
+mv -v $DIRNAME/$UNPACKED_ISO/{Packages,repodata} $DIRNAME/$TMP_REPO/
+cp -v $DIRNAME/$TMP_REPO/repodata/*comps*        $DIRNAME/$TMP_REPO/
+mv -v $DIRNAME/$TMP_REPO/*comps.xml              $DIRNAME/$TMP_REPO/comps.xml
 
 ################################## FINALIZING #######################################
 
+# Пересоберем репу, иначе хэши не сойдутся
 echo -e "${GREEN}Updating repo${NC}"
-createrepo --update _tmp/ --no-database -g comps.xml
-mv -v $DIRNAME/_tmp/{Packages,repodata} $DIRNAME/unpacked/
-rm -rvf "$DIRNAME/_tmp"
+createrepo --update $TMP_REPO/ --no-database -g comps.xml
+mv -v $DIRNAME/$TMP_REPO/{Packages,repodata} $DIRNAME/$UNPACKED_ISO/
 
-# Not sure, if we have to delete TRANS.TBL
-find $DIRNAME/unpacked -iname "trans.tbl" -delete
-
-# create efi image
+# Создадим efiboot
+echo -e "${GREEN}Creating efiboot.img${NC}"
 mkefiboot \
     --label=LIVEBOOT \
     --debug \
-    $DIRNAME/unpacked/EFI/BOOT $DIRNAME/unpacked/images/efiboot.img
+    $DIRNAME/$UNPACKED_ISO/EFI/BOOT $DIRNAME/$UNPACKED_ISO/images/efiboot.img
 
-# create iso
+# Соберем ISO
 echo -e "${GREEN}Creating new iso${NC}"
 xorriso \
     -as mkisofs \
@@ -130,11 +140,15 @@ xorriso \
     -J \
     -joliet-long \
     -V "$LABEL" \
-    -o $OUTPUT_FILE $DIRNAME/unpacked
+    -o $OUTPUT_FILE $DIRNAME/$UNPACKED_ISO
 
-# attach uefi bootloader
+# Приделаем к нему uefi загрузчик
+echo -e "${GREEN}Joining uefi bootloader to ISO${NC}"
 isohybrid \
     --uefi $OUTPUT_FILE \
     --verbose
 
-#rm -rvf "$DIRNAME/unpacked"
+# Удалим временные каталоги
+echo -e "${GREEN}Deleting temporary folders${NC}"
+rm -rf "$DIRNAME/$TMP_REPO"
+rm -rf "$DIRNAME/$UNPACKED_ISO"

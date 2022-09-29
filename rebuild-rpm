@@ -1,70 +1,55 @@
 #!/bin/bash
 
+# Падаем при ошибке
 set -eo pipefail
 
 # --- for anaconda rpm rebuild ---
 # glib2-doc gtk3-devel-docs libarchive-devel libgnomekbd-devel
 # libtimezonemap-devel libxklavier-devel audit-libs-devel metacity gtk-doc
 
-if ! [ "$EUID" -ne 0 ]
-  then echo -e "${RED}Do not run this script as root${NC}"
-  exit
-fi
-
-if [ ! -f "src/rpms/base/anaconda/anaconda-33.25.4-6.4.el7.src.rpm" ]
-then
-    echo -e "${RED}Anaconda rpm does not exist${NC}"
-    exit
-fi
-
-if [ ! -f "src/rpms/base/anaconda/anaconda.spec" ]
-then
-    echo -e "${RED}Anaconda spec does not exist${NC}"
-    exit
-fi
-
-if [ ! -f "src/rpms/base/anaconda/0006-user-glade.patch" ]
-then
-    echo -e "${RED}Anaconda patch does not exist${NC}"
-    exit
-fi
-
-if [ ! -f "src/rpms/base/initial/initial-setup-0.3.84-3.el7.src.rpm" ]
-then
-    echo -e "${RED}Initial-setup rpm does not exist${NC}"
-    exit
-fi
-
-if [ ! -f "src/rpms/base/initial/initial-setup.spec" ]
-then
-    echo -e "${RED}Initial-setup spec does not exist${NC}"
-    exit
-fi
-
-if [ ! -f "src/rpms/base/initial/0003-common-and-user.patch" ]
-then
-    echo -e "${RED}Initial-setup patch does not exist${NC}"
-    exit
-fi
-
+# Цветной вывод. Использование: echo -e "${COLOR} some text ${NC}"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\e[0m'
+
+DIRNAME=$(dirname `readlink -e "$0"`)
+
+ANACONDA_RPM="src/rpms/base/anaconda/anaconda-33.25.4-6.4.el7.src.rpm"
+ANACONDA_SPEC="src/rpms/base/anaconda/anaconda.spec"
+ANACONDA_PATCH="src/rpms/base/anaconda/0006-user-glade.patch"
+
+INITIAL_RPM="src/rpms/base/initial/initial-setup-0.3.84-3.el7.src.rpm"
+INITIAL_SPEC="src/rpms/base/initial/initial-setup.spec"
+INITIAL_PATCH="src/rpms/base/initial/0003-common-and-user.patch"
+
+# Не надо запускать сборку RPM под рутом
+if ! [ "$EUID" -ne 0 ] ; then
+    echo -e "${RED}Do not run this script as root${NC}"
+    exit
+fi
+
+# Проверим наличие файлов для сборки
+if [[ ! -f "$DIRNAME/$ANACONDA_RPM" || ! -f "$DIRNAME/$ANACONDA_SPEC" \
+    || ! -f "$DIRNAME/$ANACONDA_PATCH" || ! -f "$DIRNAME/$INITIAL_RPM" \
+    || ! -f "$DIRNAME/$INITIAL_SPEC"  || ! -f "$DIRNAME/$INITIAL_PATCH" ]] ; then
+    echo -e "${RED}Some of necessary config files are absent${NC}"
+    exit
+fi
 
 ################################ Rebuild RPMs #######################################
 
 echo -e "${GREEN}Rebuilding anaconda rpm${NC}"
 rpmdev-wipetree
-rpm -ihv src/rpms/base/anaconda/anaconda-33.25.4-6.4.el7.src.rpm
-cp -v src/rpms/base/anaconda/anaconda.spec ~/rpmbuild/SPECS/
-cp -v src/rpms/base/anaconda/0006-user-glade.patch ~/rpmbuild/SOURCES/
-rpmbuild -bb ~/rpmbuild/SPECS/anaconda.spec #|| { echo -e "${RED}Build failed${NC}" ; exit 1; }
-cp -v ~/rpmbuild/RPMS/x86_64/anaconda-* src/rpms/
+rpm -ihv "$DIRNAME/$ANACONDA_RPM"
+cp -v "$DIRNAME/$ANACONDA_SPEC"  "$HOME/rpmbuild/SPECS/"
+cp -v "$DIRNAME/$ANACONDA_PATCH" "$HOME/rpmbuild/SOURCES/"
+rpmbuild -bb "$HOME/rpmbuild/SPECS/anaconda.spec"
+cp -v $HOME/rpmbuild/RPMS/x86_64/anaconda-* $DIRNAME/src/rpms/
 
 echo -e "${GREEN}Rebuilding initial-setup rpm${NC}"
 rpmdev-wipetree
-rpm -ihv src/rpms/base/initial/initial-setup-0.3.84-3.el7.src.rpm
-cp -v src/rpms/base/initial/initial-setup.spec ~/rpmbuild/SPECS/
-cp -v src/rpms/base/initial/0003-common-and-user.patch ~/rpmbuild/SOURCES/
-rpmbuild -bb ~/rpmbuild/SPECS/initial-setup.spec # || { echo -e "${RED}Build failed${NC}" ; exit 1; }
-cp -v ~/rpmbuild/RPMS/x86_64/initial* src/rpms/
+rpm -ihv "$DIRNAME/$INITIAL_RPM"
+cp -v "$DIRNAME/$INITIAL_SPEC"  "$HOME/rpmbuild/SPECS/"
+cp -v "$DIRNAME/$INITIAL_PATCH" "$HOME/rpmbuild/SOURCES/"
+rpmbuild -bb "$HOME/rpmbuild/SPECS/initial-setup.spec"
+cp -v $HOME/rpmbuild/RPMS/x86_64/initial* $DIRNAME/src/rpms/
