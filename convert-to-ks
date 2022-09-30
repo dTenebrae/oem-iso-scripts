@@ -35,7 +35,7 @@ INIT_RPM="src/rpms/initial-*"
 
 ####################### SANITY CHECKS & PREPARATIONS ################################
 
-# Мы хотим запускаться от рута
+# Мы хотим запускаться от root'a
 if [ "$EUID" -ne 0 ] ; then
     echo -e "${RED}Please run as root${NC}"
     exit
@@ -124,6 +124,24 @@ mkefiboot \
 
 # Соберем ISO
 echo -e "${GREEN}Creating new iso${NC}"
+
+# -as mkisofs           - включает сет ключей mkisofs
+# -isohybrid-mbr        - Приаттачим isohdpfx.bin(Syslinux) для дальнейшей обработки isohybrid'ом
+# -c                    - имя El Torito(позволяет образу грузиться с CD) загрузочного каталога
+# -b                    - имя El Torito загрузочного образа
+# -no-emul-boot         - Говорит системе загрузить и запустить образ не выполняя эмуляцию
+# -boot-load-size       - Определяет количество 512-byte секторов для загрузки в no-emul режиме. У некоторых BIOS будут сложности, если не кратно 4
+# -boot-info-table      - Говорит, что 56-byte таблица с инфой о разметке CD будет запатчена со смещением 8. Зачем - хз.
+# -eltorito-alt-boot    - С этого места определяем параметры конкретно для загрузки El Torito
+# -e                    - Путь к EFI образу
+# -no-emul-boot         - см. выше
+# -isohybrid-gpt-basdat - пометить El Torito загрузочный образ как Basic Data в GPT
+# -R                    - Сгенерировать Rock Ridge(семантика файловой системы UNIX) информацию для каталогов.
+# -J                    - Включить Joliet расширение для стандарта ISO9660 (смягчает ограничения имен файлов)
+# -joliet-long          - Разрешает Joliet-именам файлов быть длиной до 103 Unicode символов
+# -V                    - Метка тома
+# -o                    - куда и откуда пишем > выходной файл : папка с распакованным образом
+
 xorriso \
     -as mkisofs \
     -isohybrid-mbr $DIRNAME/$ISO_HDPFX \

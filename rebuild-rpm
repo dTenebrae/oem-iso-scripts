@@ -22,7 +22,7 @@ INITIAL_RPM="src/rpms/base/initial/initial-setup-0.3.84-3.el7.src.rpm"
 INITIAL_SPEC="src/rpms/base/initial/initial-setup.spec"
 INITIAL_PATCH="src/rpms/base/initial/0003-common-and-user.patch"
 
-# Не надо запускать сборку RPM под рутом
+# Не надо запускать сборку RPM под root'ом
 if ! [ "$EUID" -ne 0 ] ; then
     echo -e "${RED}Do not run this script as root${NC}"
     exit
