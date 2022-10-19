@@ -166,6 +166,13 @@ isohybrid \
     --uefi $OUTPUT_FILE \
     --verbose
 
+# md5
+printf "\n"
+echo -e "${GREEN}Creating md5${NC}"
+MD5NAME=$(basename $OUTPUT_FILE .iso)
+md5sum $OUTPUT_FILE > $DIRNAME/iso/$MD5NAME.md5
+cat $DIRNAME/iso/$MD5NAME.md5
+
 # Удалим временные каталоги
 echo -e "${GREEN}Deleting temporary folders${NC}"
 rm -rf "$DIRNAME/$TMP_REPO"
