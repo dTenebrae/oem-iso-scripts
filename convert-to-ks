@@ -1,5 +1,6 @@
 #!/bin/bash
 
+VERSION="7.3.2"
 # Падаем при ошибке
 set -eo pipefail
 
@@ -27,11 +28,11 @@ GRUB_CFG="$UNPACKED_ISO/EFI/BOOT/grub.cfg"
 
 # Внешние пути
 KS_CFG_PATCHED="src/cfg/ks.cfg"
-ISO_CFG_PATCHED="src/cfg/isolinux_patched.cfg"
-GRUB_CFG_PATCHED="src/cfg/grub_patched.cfg"
+ISO_CFG_PATCHED="src/cfg/$VERSION/isolinux_patched.cfg"
+GRUB_CFG_PATCHED="src/cfg/$VERSION/grub_patched.cfg"
 ISO_HDPFX="src/isohdpfx.bin"
-ANAC_RPM="src/rpms/anaconda-*"
-INIT_RPM="src/rpms/initial-*"
+ANAC_RPM="src/rpms/$VERSION/anaconda-*"
+INIT_RPM="src/rpms/$VERSION/initial-*"
 
 ####################### SANITY CHECKS & PREPARATIONS ################################
 
@@ -106,7 +107,7 @@ cp -v $DIRNAME/$ANAC_RPM                         $DIRNAME/$UNPACKED_ISO/Packages
 cp -v $DIRNAME/$INIT_RPM                         $DIRNAME/$UNPACKED_ISO/Packages/i/
 mv -v $DIRNAME/$UNPACKED_ISO/{Packages,repodata} $DIRNAME/$TMP_REPO/
 cp -v $DIRNAME/$TMP_REPO/repodata/*comps*        $DIRNAME/$TMP_REPO/
-mv -v $DIRNAME/$TMP_REPO/*comps.xml              $DIRNAME/$TMP_REPO/comps.xml
+mv -v $DIRNAME/$TMP_REPO/*comps*.xml              $DIRNAME/$TMP_REPO/comps.xml
 
 ################################## FINALIZING #######################################
 
@@ -171,6 +172,7 @@ printf "\n"
 echo -e "${GREEN}Creating md5${NC}"
 MD5NAME=$(basename $OUTPUT_FILE .iso)
 md5sum $OUTPUT_FILE > $DIRNAME/iso/$MD5NAME.md5
+sed -i 's/iso\///g' $DIRNAME/iso/$MD5NAME.md5
 cat $DIRNAME/iso/$MD5NAME.md5
 
 # Удалим временные каталоги

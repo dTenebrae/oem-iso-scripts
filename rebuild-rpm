@@ -1,5 +1,7 @@
 #!/bin/bash
 
+VERSION="7.3.1"
+
 # Падаем при ошибке
 set -eo pipefail
 
@@ -14,9 +16,20 @@ NC='\e[0m'
 
 DIRNAME=$(dirname `readlink -e "$0"`)
 
-ANACONDA_RPM="src/rpms/base/anaconda/anaconda-33.25.4-6.4.el7.src.rpm"
-ANACONDA_SPEC="src/rpms/base/anaconda/anaconda.spec"
-ANACONDA_PATCH="src/rpms/base/anaconda/0006-user-glade.patch"
+if [[ "$VERSION" == "7.3.1" ]]; then
+        ANACONDA_RPM="src/rpms/base/anaconda/$VERSION/anaconda-33.25.4-6.4.el7.src.rpm"
+        ANACONDA_SPEC="src/rpms/base/anaconda/$VERSION/anaconda.spec"
+        ANACONDA_PATCH="src/rpms/base/anaconda/$VERSION/0006-user-glade.patch"
+elif [[ "$VERSION" == "7.3.2" ]]; then
+        ANACONDA_RPM="src/rpms/base/anaconda/$VERSION/anaconda-33.25.4-6.5.el7.src.rpm"
+        ANACONDA_SPEC="src/rpms/base/anaconda/$VERSION/anaconda.spec"
+        ANACONDA_PATCH="src/rpms/base/anaconda/$VERSION/0006-user-glade.patch"
+else
+        echo "Wrong version variable"
+        exit
+fi
+
+
 
 INITIAL_RPM="src/rpms/base/initial/initial-setup-0.3.84-3.el7.src.rpm"
 INITIAL_SPEC="src/rpms/base/initial/initial-setup.spec"
@@ -44,7 +57,7 @@ rpm -ihv "$DIRNAME/$ANACONDA_RPM"
 cp -v "$DIRNAME/$ANACONDA_SPEC"  "$HOME/rpmbuild/SPECS/"
 cp -v "$DIRNAME/$ANACONDA_PATCH" "$HOME/rpmbuild/SOURCES/"
 rpmbuild -bb "$HOME/rpmbuild/SPECS/anaconda.spec"
-cp -v $HOME/rpmbuild/RPMS/x86_64/anaconda-* $DIRNAME/src/rpms/
+cp -v $HOME/rpmbuild/RPMS/x86_64/anaconda-* $DIRNAME/src/rpms/$VERSION
 
 echo -e "${GREEN}Rebuilding initial-setup rpm${NC}"
 rpmdev-wipetree
@@ -52,4 +65,4 @@ rpm -ihv "$DIRNAME/$INITIAL_RPM"
 cp -v "$DIRNAME/$INITIAL_SPEC"  "$HOME/rpmbuild/SPECS/"
 cp -v "$DIRNAME/$INITIAL_PATCH" "$HOME/rpmbuild/SOURCES/"
 rpmbuild -bb "$HOME/rpmbuild/SPECS/initial-setup.spec"
-cp -v $HOME/rpmbuild/RPMS/x86_64/initial* $DIRNAME/src/rpms/
+cp -v $HOME/rpmbuild/RPMS/x86_64/initial* $DIRNAME/src/rpms/$VERSION

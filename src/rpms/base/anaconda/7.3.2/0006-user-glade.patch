@@ -1,0 +1,40 @@
+From cb2bfcb565d676403fabb990b593dac260a9d31c Mon Sep 17 00:00:00 2001
+From: Artem Chernyshev <artem.chernyshev@red-soft.ru>
+Date: Mon, 26 Sep 2022 16:31:16 +0300
+Subject: [PATCH] user glade
+
+---
+ pyanaconda/ui/gui/spokes/user.glade | 1 +
+ pyanaconda/ui/lib/users.py          | 4 +++-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/pyanaconda/ui/gui/spokes/user.glade b/pyanaconda/ui/gui/spokes/user.glade
+index 69156b1..b2e7442 100644
+--- a/pyanaconda/ui/gui/spokes/user.glade
++++ b/pyanaconda/ui/gui/spokes/user.glade
+@@ -263,6 +263,7 @@
+                         <property name="visible">True</property>
+                         <property name="can_focus">True</property>
+                         <property name="receives_default">False</property>
++                        <property name="active">True</property>
+                         <property name="use_underline">True</property>
+                         <property name="xalign">0</property>
+                         <property name="draw_indicator">True</property>
+diff --git a/pyanaconda/ui/lib/users.py b/pyanaconda/ui/lib/users.py
+index 31665f0..415a914 100644
+--- a/pyanaconda/ui/lib/users.py
++++ b/pyanaconda/ui/lib/users.py
+@@ -40,7 +40,9 @@ def get_user_list(users_module, add_default=False, add_if_not_empty=False):
+         # we only add default user to an empty list, to add default user to
+         # a populated list the add_if_not_empty option needs to be used
+         if not user_data_list or add_if_not_empty:
+-            user_data_list.insert(0, UserData())
++            data = UserData()
++            data.set_admin_priviledges(True)
++            user_data_list.insert(0, data)
+ 
+     return user_data_list
+ 
+-- 
+2.30.3
+
